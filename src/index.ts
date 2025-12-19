@@ -1,6 +1,5 @@
 export interface Env {
 	DISCORD_WEBHOOK: string;
-	ROOM_KEY: string;
 }
 
 export default {
@@ -16,21 +15,11 @@ export default {
 			return new Response('Invalid JSON', { status: 400 });
 		}
 
-		// Validate room key
-		if (!data.room_key || data.room_key !== env.ROOM_KEY) {
-			return new Response('Forbidden', { status: 403 });
-		}
-
-		if (!data.url.startsWith('https://discord.com/api/webhooks/')) {
-			return new Response('Invalid webhook', { status: 400 });
-		}
-
 		// Format message for Discord
 		const isMessage = data.text && data.title && data.author;
 		const message = `${data.user} highlighted: ${data.title} by ${data.author} - ${data.text}`;
 		const payload = {
 			content: isMessage ? message : 'no message',
-			url: data.url,
 		};
 
 		// Forward to Discord webhook
