@@ -22,8 +22,8 @@ export default {
 		}
 
 		// Format message for Discord
-		const isMessage = data.highlights && data.book;
-		const message = `${data.book} - ${data.highlights}`;
+		const isMessage = data.text && data.title && data.author;
+		const message = `${data.title} by ${data.author} - ${data.text}`;
 		const payload = {
 			content: isMessage ? message : 'no message',
 		};
