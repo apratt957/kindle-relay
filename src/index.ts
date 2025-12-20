@@ -17,7 +17,7 @@ export default {
 
 		// Format message for Discord
 		const isMessage = data.text && data.title && data.author;
-		const message = `${data.user} highlighted: ${data.title} by ${data.author} - ${data.text}`;
+		const message = '```' + `${data.user} highlighted:\n\n${data.title}\nby ${data.author}\n\n` + data.text + '```';
 		const payload = {
 			content: isMessage ? message : 'no message',
 		};
