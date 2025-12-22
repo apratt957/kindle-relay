@@ -5,6 +5,13 @@ export interface Env {
 	TOKENS: KVNamespace;
 }
 
+export interface TokenRecord {
+	channelID: string;
+	guildID: string;
+	userID: string;
+	token: string;
+}
+
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
@@ -49,7 +56,7 @@ export default {
 			}
 
 			// Lookup the mapping from KV
-			const record = await env.TOKENS.get(token, { type: 'json' });
+			const record = await env.TOKENS.get<TokenRecord>(token, { type: 'json' });
 			if (!record || !record.channelID) {
 				return new Response('Invalid or expired token', { status: 403 });
 			}
