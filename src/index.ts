@@ -10,6 +10,7 @@ export interface TokenRecord {
 	guildID: string;
 	userID: string;
 	token: string;
+	username: string;
 }
 
 export default {
@@ -31,14 +32,14 @@ export default {
 		// /register endpoint
 		// -----------------------------
 		if (url.pathname === '/register') {
-			const { token, guildID, channelID, userID } = data;
+			const { token, guildID, channelID, userID, username } = data;
 
-			if (!token || !guildID || !channelID || !userID) {
+			if (!token || !guildID || !channelID || !userID || !username) {
 				return new Response('Missing required fields', { status: 400 });
 			}
 
 			// Store the mapping in KV
-			await env.TOKENS.put(token, JSON.stringify({ guildID, channelID, userID }));
+			await env.TOKENS.put(token, JSON.stringify({ guildID, channelID, userID, username }));
 
 			return new Response(JSON.stringify({ ok: true }), {
 				headers: { 'Content-Type': 'application/json' },
@@ -49,7 +50,7 @@ export default {
 		// /quote endpoint
 		// -----------------------------
 		if (url.pathname === '/quote') {
-			const { token, text, title, author, user } = data;
+			const { token, text, title, author } = data;
 
 			if (!token) {
 				return new Response('Missing token', { status: 400 });
@@ -62,8 +63,8 @@ export default {
 			}
 
 			// Format Discord message
-			const isMessage = text && title && author && user;
-			const message = isMessage ? `\`\`\`\n${user} highlighted:\n\n${title}\nby ${author}\n\n${text}\n\`\`\`` : 'No message';
+			const isMessage = text && title && author && record.username;
+			const message = isMessage ? `\`\`\`\n${record.username} highlighted:\n\n${title}\nby ${author}\n\n${text}\n\`\`\`` : 'No message';
 
 			// Post to Discord
 			const discordResp = await fetch(`${DISCORD_API}/channels/${record.channelID}/messages`, {
