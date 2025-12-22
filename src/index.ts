@@ -38,6 +38,22 @@ export default {
 				return new Response('Missing required fields', { status: 400 });
 			}
 
+			const list = await env.TOKENS.list({ limit: 1000 });
+
+			// Check if user already has a token for this channel
+			for (const key of list.keys) {
+				const valueRaw = await env.TOKENS.get(key.name);
+				if (valueRaw) {
+					const value: TokenRecord = JSON.parse(valueRaw);
+					if (value.userID === userID && value.channelID === channelID) {
+						return new Response(JSON.stringify({ success: false, message: 'duplicateToken', token: key.name }), {
+							status: 400,
+							headers: { 'Content-Type': 'application/json' },
+						});
+					}
+				}
+			}
+
 			// Store the mapping in KV
 			await env.TOKENS.put(token, JSON.stringify({ guildID, channelID, userID, username }));
 
