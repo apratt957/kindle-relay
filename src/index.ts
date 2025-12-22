@@ -11,6 +11,7 @@ export interface TokenRecord {
 	userID: string;
 	token: string;
 	username: string;
+	createdAt: number;
 }
 
 export default {
@@ -32,9 +33,9 @@ export default {
 		// /register endpoint
 		// -----------------------------
 		if (url.pathname === '/register') {
-			const { token, guildID, channelID, userID, username } = data;
+			const { token, guildID, channelID, userID, username, createdAt } = data;
 
-			if (!token || !guildID || !channelID || !userID || !username) {
+			if (!token || !guildID || !channelID || !userID || !username || !createdAt) {
 				return new Response('Missing required fields', { status: 400 });
 			}
 
@@ -46,7 +47,7 @@ export default {
 				if (valueRaw) {
 					const value: TokenRecord = JSON.parse(valueRaw);
 					if (value.userID === userID && value.channelID === channelID) {
-						return new Response(JSON.stringify({ success: false, message: 'duplicateToken', token: key.name }), {
+						return new Response(JSON.stringify({ success: false, error: 'duplicateToken', token: key.name }), {
 							status: 400,
 							headers: { 'Content-Type': 'application/json' },
 						});
@@ -55,7 +56,7 @@ export default {
 			}
 
 			// Store the mapping in KV
-			await env.TOKENS.put(token, JSON.stringify({ guildID, channelID, userID, username }));
+			await env.TOKENS.put(token, JSON.stringify({ guildID, channelID, userID, username, createdAt }));
 
 			return new Response(JSON.stringify({ ok: true }), {
 				headers: { 'Content-Type': 'application/json' },
@@ -67,15 +68,18 @@ export default {
 		// -----------------------------
 		if (url.pathname === '/quote') {
 			const { token, text, title, author } = data;
+			const MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 
 			if (!token) {
-				return new Response('Missing token', { status: 400 });
+				return new Response(JSON.stringify({ success: false, error: 'missingToken' }), { status: 400 });
 			}
 
 			// Lookup the mapping from KV
 			const record = await env.TOKENS.get<TokenRecord>(token, { type: 'json' });
-			if (!record || !record.channelID) {
-				return new Response('Invalid or expired token', { status: 403 });
+			if (!record || !record.channelID || !record.createdAt) {
+				return new Response(JSON.stringify({ success: false, error: 'invalidToken' }), { status: 403 });
+			} else if (Date.now() - record.createdAt > MAX_AGE_MS) {
+				return new Response(JSON.stringify({ success: false, error: 'expiredToken' }), { status: 403 });
 			}
 
 			// Format Discord message
@@ -96,6 +100,42 @@ export default {
 				const err = await discordResp.text();
 				return new Response(`Discord API error: ${err}`, { status: 500 });
 			}
+
+			return new Response(JSON.stringify({ ok: true }), {
+				headers: { 'Content-Type': 'application/json' },
+			});
+		}
+
+		// -----------------------------
+		// /refresh endpoint
+		// -----------------------------
+		if (url.pathname === '/refresh') {
+			const { token, guildID, channelID, userID, username, createdAt } = data;
+
+			if (!token || !guildID || !channelID || !userID || !username || !createdAt) {
+				return new Response('Missing required fields', { status: 400 });
+			}
+
+			const list = await env.TOKENS.list({ limit: 1000 });
+
+			// Find user's old token
+			let oldToken = '';
+			for (const key of list.keys) {
+				const valueRaw = await env.TOKENS.get(key.name);
+				if (valueRaw) {
+					const value: TokenRecord = JSON.parse(valueRaw);
+					if (value.userID === userID && value.channelID === channelID) {
+						oldToken = key.name;
+						break;
+					}
+				}
+			}
+
+			//Delete user's old token
+			await env.TOKENS.delete(oldToken);
+
+			//Create new token
+			await env.TOKENS.put(token, JSON.stringify({ guildID, channelID, userID, username, createdAt }));
 
 			return new Response(JSON.stringify({ ok: true }), {
 				headers: { 'Content-Type': 'application/json' },
